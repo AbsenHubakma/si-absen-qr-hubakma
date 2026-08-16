@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b57d0">
+<title>SI-ABSEN QR - SMP Negeri Hubakma</title>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f3f6fa;color:#172033}
+.app{max-width:560px;margin:0 auto;padding:16px}.card{background:#fff;border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.header{text-align:center}.header h1{margin:0;font-size:24px}.header p{margin:7px 0 0;color:#657083}
+#reader{width:100%;overflow:hidden;border-radius:14px}#reader button{min-height:42px;border-radius:9px;padding:8px 14px;font-size:15px}
+.result{text-align:center;min-height:150px;display:flex;flex-direction:column;justify-content:center}
+.status{font-size:28px;font-weight:800;margin:8px 0}.name{font-size:25px;font-weight:700}.class{font-size:18px;color:#5d6878;margin-top:4px}.detail{margin-top:8px;font-size:15px;color:#687386}
+.waiting{color:#536174}.success{color:#16803c}.warning{color:#b26a00}.error{color:#c62828}.small{text-align:center;font-size:13px;color:#7b8594;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="card header"><h1>SI-ABSEN QR</h1><p>SMP NEGERI HUBAKMA</p></div>
+<div class="card"><div id="reader"></div><div class="small">Izinkan kamera jika Chrome meminta akses.</div></div>
+<div class="card result" id="hasil"><div class="status waiting">SIAP SCAN</div><div class="detail">Arahkan kamera ke QR Code siswa</div></div>
+</div>
+<script>
+const BACKEND_URL="https://script.google.com/macros/s/AKfycbyJ3a3ikqTgNt7a2RmSm6kaFP6oP9Cf9niZ6LOOfCNcQgZbTZzXfOryOhK1pH2D1EQ/exec";
+let processing=false;
+
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));}
+function showResult(type,title,name="",kelas="",detail=""){
+ document.getElementById("hasil").innerHTML='<div class="status '+type+'">'+title+'</div>'+
+ (name?'<div class="name">'+escapeHtml(name)+'</div>':'')+
+ (kelas?'<div class="class">Kelas '+escapeHtml(kelas)+'</div>':'')+
+ (detail?'<div class="detail">'+escapeHtml(detail)+'</div>':'');
+}
+function tampilkanHasil(data){
+ if(!data||data.success!==true){showResult("error","ABSENSI DITOLAK",data?.nama||"",data?.kelas||"",data?.message||"QR tidak terdaftar");return;}
+ const nama=data.nama||data.name||"",kelas=data.kelas||data.class||"",jam=data.jam||data.time||"";
+ if(data.type==="duplicate"||/sudah\s*absen/i.test(String(data.status||""))){
+  showResult("warning","SUDAH ABSEN",nama,kelas,jam?"Absensi sebelumnya: "+jam:"");return;
+ }
+ showResult("success",data.status||"HADIR",nama,kelas,jam);
+}
+function scanBerhasil(qrText){
+ if(processing)return; processing=true;
+ showResult("waiting","MEMPROSES...","","","Mohon tunggu");
+ const url=BACKEND_URL+"?action=scan&idQR="+encodeURIComponent(qrText);
+ fetch(url,{method:"GET",cache:"no-store"})
+ .then(async r=>{const text=await r.text();let data;try{data=JSON.parse(text)}catch(e){throw new Error("Respons server bukan JSON")};tampilkanHasil(data)})
+ .catch(error=>{console.error(error);showResult("error","GAGAL TERHUBUNG","","","Jika pesan ini muncul di GitHub Pages, kita aktifkan mode JSONP pada backend.")})
+ .finally(()=>setTimeout(()=>{processing=false;showResult("waiting","SIAP SCAN","","","Arahkan kamera ke QR Code siswa")},5000));
+}
+function mulaiScanner(){
+ const scanner=new Html5Qrcode("reader");
+ const config={fps:10,qrbox:(w,h)=>{const s=Math.floor(Math.min(w,h)*.72);return{width:s,height:s}}};
+ scanner.start({facingMode:"environment"},config,scanBerhasil,()=>{}).catch(error=>{
+  console.error(error);showResult("error","KAMERA TIDAK DAPAT DIBUKA","","","Pastikan halaman dibuka melalui HTTPS dan izin kamera Chrome aktif.");
+ });
+}
+window.addEventListener("load",mulaiScanner);
+</script>
+</body>
+</html>
