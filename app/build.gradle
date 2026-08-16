@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'id.hubakma.siabsen
+ namespace 'id.hubakma.siabsen'
     compileSdk 35
 
     defaultConfig {
